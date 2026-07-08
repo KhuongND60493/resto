@@ -1,13 +1,20 @@
-import React from 'react';
 import RemoteModuleRouter from '../../components/RemoteModuleRouter';
+import { loadRemoteComponent } from '../../lib/services/loadRemoteComponent';
+import { services } from '../../services.config';
 
-// Mỗi remote module cần 1 dynamic import riêng, key phải khớp `modules[].key` của
-// service 'bookingAdmin' trong services.config.js — webpack/MF cần specifier dạng
-// literal để resolve đúng container, không thể generate động từ config.
-const remoteMap = {
-  reservations: React.lazy(() => import('bookingAdmin/ReservationsPage')),
-  tables: React.lazy(() => import('bookingAdmin/TablesPage')),
-};
+// @module-federation/runtime nhận specifier dạng STRING (không cần literal import() như
+// bản Next 13 dùng webpack ModuleFederationPlugin) — nên remoteMap generate được thẳng từ
+// services.config.js, không cần liệt kê tay từng module nữa.
+const bookingService = services.find((s) => s.key === 'bookingAdmin')!;
+const remoteMap = Object.fromEntries(
+  bookingService.modules.map((m) => [m.key, loadRemoteComponent(bookingService, m.key)])
+);
+
+// Ép server-render (thay vì Next thử static-generate lúc build) — tránh lỗi
+// "Cannot find module" khi build cố resolve module remote lúc prerender.
+export async function getServerSideProps() {
+  return { props: {} };
+}
 
 export default function BookingRoute() {
   // tenantId trong thực tế lấy từ session/subdomain của resto,
