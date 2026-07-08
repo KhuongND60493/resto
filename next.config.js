@@ -1,5 +1,5 @@
 const { NextFederationPlugin } = require('@module-federation/nextjs-mf');
-const { services } = require('./services.config');
+const { services, resolveRemoteUrl, APP_ENV } = require('./services.config');
 
 // Dynamic remote: KHÔNG hardcode version vào URL lúc build. Thay vào đó, remote value là
 // 1 đoạn code "promise new Promise(...)" — webpack hỗ trợ cú pháp này để resolve remote
@@ -10,7 +10,7 @@ const { services } = require('./services.config');
 // promote bên service đó là resto tự nhận version mới ở lần load tiếp theo.
 // Sinh 1 lần cho MỌI service trong services.config.js — không cần viết tay từng cái.
 function buildDynamicRemote(service) {
-  const remoteUrl = process.env[service.remoteUrlEnv] || service.defaultRemoteUrl;
+  const remoteUrl = resolveRemoteUrl(service);
   const scope = service.federationName;
   return `promise new Promise((resolve, reject) => {
   if (typeof window === 'undefined') { reject(new Error('${scope} remote is client-only')); return; }
@@ -45,6 +45,12 @@ for (const service of services) {
     serverExternals.push(`${service.federationName}/${mod.remoteModule}`);
   }
 }
+
+console.log(
+  `[services.config] APP_ENV=${APP_ENV} — remote URL đã resolve: ${services
+    .map((s) => `${s.key}=${resolveRemoteUrl(s)}`)
+    .join(', ')}`
+);
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {

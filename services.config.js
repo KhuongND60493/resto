@@ -17,6 +17,16 @@
 //      lib/services/createBackendProxy.ts (xem pages/api/booking/*.ts làm mẫu)
 // KHÔNG cần sửa next.config.js hay lib/menu-config.ts — tự động nhận từ đây.
 // ============================================================================
+//
+// ĐA MÔI TRƯỜNG (dev cloud / stg / prod): mỗi môi trường có domain remote khác nhau.
+// Ưu tiên giải quyết bằng ENV VAR thật (set khác nhau ở từng deploy target — Vercel
+// Project Settings > Environment Variables, hoặc .env.<env> nếu tự host) — đó là cách
+// chuẩn, không hardcode domain vào code. `defaultRemoteUrl` bên dưới chỉ là LƯỚI AN
+// TOÀN khi quên set env var, tự chọn theo APP_ENV (dev|staging|prod), không phải cơ
+// chế chính. Nếu env var `remoteUrlEnv` đã set thì defaultRemoteUrl không được dùng tới.
+
+/** @type {'dev' | 'staging' | 'prod'} */
+const APP_ENV = /** @type {any} */ (process.env.APP_ENV) || 'dev';
 
 /**
  * @typedef {object} ServiceModule
@@ -37,8 +47,10 @@
  * @property {string} key - unique key, vd 'bookingAdmin'
  * @property {string} label - label nhóm menu, vd 'Booking'
  * @property {string} federationName - PHẢI khớp `name` trong NextFederationPlugin của remote
- * @property {string} remoteUrlEnv - tên env var chứa base URL của remote (CDN)
- * @property {string} defaultRemoteUrl - URL fallback nếu env chưa set
+ * @property {string} remoteUrlEnv - tên env var chứa base URL của remote (CDN) — LUÔN ưu
+ *   tiên hơn defaultRemoteUrl nếu có set, bất kể APP_ENV là gì.
+ * @property {Record<'dev'|'staging'|'prod', string>} defaultRemoteUrl - URL fallback theo
+ *   từng môi trường, dùng khi remoteUrlEnv chưa set.
  * @property {string} routePrefix - tiền tố route, vd '/booking'
  * @property {ServiceModule[]} modules - danh sách module expose từ service này
  * @property {ServiceBackend} [backend] - cấu hình proxy sang backend thật (optional)
@@ -51,7 +63,13 @@ const services = [
     label: 'Booking',
     federationName: 'bookingAdmin',
     remoteUrlEnv: 'BOOKING_ADMIN_URL',
-    defaultRemoteUrl: 'https://booking-admin-indol.vercel.app',
+    defaultRemoteUrl: {
+      // TODO: điền domain thật của từng môi trường khi có. Hiện chỉ có 1 deployment
+      // (Vercel test) nên cả 3 tạm trỏ chung — không phải lỗi, chỉ chưa tách môi trường.
+      dev: 'https://booking-admin-indol.vercel.app',
+      staging: 'https://booking-admin-indol.vercel.app',
+      prod: 'https://booking-admin-indol.vercel.app',
+    },
     routePrefix: '/booking',
     modules: [
       { key: 'reservations', label: 'Đặt bàn', path: '/booking/reservations', remoteModule: 'ReservationsPage' },
@@ -69,7 +87,11 @@ const services = [
   //   label: 'Kho',
   //   federationName: 'inventoryAdmin',
   //   remoteUrlEnv: 'INVENTORY_ADMIN_URL',
-  //   defaultRemoteUrl: 'https://inventory-admin.vercel.app',
+  //   defaultRemoteUrl: {
+  //     dev: 'https://inventory-admin-dev.vercel.app',
+  //     staging: 'https://inventory-admin-stg.vercel.app',
+  //     prod: 'https://inventory-admin.example.com',
+  //   },
   //   routePrefix: '/inventory',
   //   modules: [
   //     { key: 'stock', label: 'Tồn kho', path: '/inventory/stock', remoteModule: 'StockPage' },
@@ -81,4 +103,14 @@ const services = [
   // },
 ];
 
-module.exports = { services };
+/**
+ * Resolve URL thật sự dùng cho 1 service: env var override trước, không có thì fallback
+ * theo APP_ENV hiện tại (mặc định 'prod' nếu APP_ENV lạ/không set default cho môi trường đó).
+ * @param {ServiceConfig} service
+ * @returns {string}
+ */
+function resolveRemoteUrl(service) {
+  return process.env[service.remoteUrlEnv] || service.defaultRemoteUrl[APP_ENV] || service.defaultRemoteUrl.prod;
+}
+
+module.exports = { services, resolveRemoteUrl, APP_ENV };
