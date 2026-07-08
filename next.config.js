@@ -1,13 +1,34 @@
 const { NextFederationPlugin } = require('@module-federation/nextjs-mf');
 
-// Versioned remote URL — KHÔNG trỏ vào "latest".
-// Bump thủ công (qua PR) mỗi khi muốn nhận version mới của booking-admin.
-// Version phải khớp REMOTE_VERSION đã build bên booking-admin, vì filename remoteEntry
-// trên CDN được nhúng version trực tiếp (remoteEntry.<version>.js) — Vercel ép cache
-// immutable 1 năm cho mọi thứ dưới _next/static/ nên không thể dùng tên cố định.
-const BOOKING_ADMIN_REMOTE_VERSION = '1.0.0';
+// Domain của booking-admin — hiếm khi đổi (khác với version, đổi liên tục mỗi release).
 const BOOKING_ADMIN_URL =
   process.env.BOOKING_ADMIN_URL || 'https://booking-admin-indol.vercel.app';
+
+// Dynamic remote: KHÔNG hardcode version vào URL lúc build nữa. Thay vào đó, remote value
+// là 1 đoạn code "promise new Promise(...)" — webpack hỗ trợ cú pháp này để resolve remote
+// container lúc RUNTIME thay vì lúc build. Ở đây ta fetch registry.json (do booking-admin
+// sinh ra, cache ngắn) để lấy version "stable" hiện tại, rồi mới load đúng remoteEntry đó.
+//
+// Nhờ vậy: booking-admin release version mới KHÔNG bắt buộc resto phải build lại — chỉ cần
+// ai đó promote (đổi "stable" trong registry.source.json bên booking-admin + deploy lại
+// booking-admin) là resto tự nhận version mới ở lần load tiếp theo.
+const BOOKING_ADMIN_REMOTE = `promise new Promise((resolve, reject) => {
+  if (typeof window === 'undefined') { reject(new Error('bookingAdmin remote is client-only')); return; }
+  if (window.bookingAdmin) { resolve(window.bookingAdmin); return; }
+  fetch('${BOOKING_ADMIN_URL}/registry.json', { cache: 'no-store' })
+    .then((res) => res.json())
+    .then((registry) => {
+      const script = document.createElement('script');
+      script.src = '${BOOKING_ADMIN_URL}/_next/static/chunks/remoteEntry.' + registry.stable + '.js';
+      script.onload = () => {
+        if (window.bookingAdmin) resolve(window.bookingAdmin);
+        else reject(new Error('bookingAdmin container not found after script load'));
+      };
+      script.onerror = () => reject(new Error('Failed to load remoteEntry for bookingAdmin'));
+      document.head.appendChild(script);
+    })
+    .catch(reject);
+})`;
 
 // Đây là danh sách specifier remote mà các trang resto import qua next/dynamic(ssr:false).
 // Dù ssr:false đảm bảo remote KHÔNG được thực thi phía server, Next vẫn cần biết module
@@ -35,7 +56,7 @@ const nextConfig = {
         name: 'resto',
         filename: 'static/chunks/remoteEntry.js',
         remotes: {
-          bookingAdmin: `bookingAdmin@${BOOKING_ADMIN_URL}/_next/static/chunks/remoteEntry.${BOOKING_ADMIN_REMOTE_VERSION}.js`,
+          bookingAdmin: BOOKING_ADMIN_REMOTE,
         },
         shared: {
           react: { singleton: true, requiredVersion: false },
