@@ -1,3 +1,5 @@
+import { services } from '../services.config';
+
 export interface MenuItem {
   key: string;
   label: string;
@@ -11,12 +13,8 @@ export interface MenuGroup {
 }
 
 /**
- * Menu của resto khai báo tĩnh ở đây (theo yêu cầu: quản lý menu con của Booking
- * ngay trong resto, không fetch runtime từ booking-admin).
- *
- * Lưu ý: "key" của mỗi item trong nhóm "booking" phải khớp với case trong
- * pages/booking/[...slug].tsx (nơi map key -> remote component tương ứng),
- * và khớp với tên module đã expose bên booking-admin/next.config.js.
+ * Menu sidebar sinh tự động từ services.config.js — thêm service mới ở đó thì menu
+ * tự cập nhật, không cần sửa file này.
  */
 export const MENU_GROUPS: MenuGroup[] = [
   {
@@ -24,14 +22,15 @@ export const MENU_GROUPS: MenuGroup[] = [
     label: 'Tổng quan',
     items: [{ key: 'home', label: 'Trang chủ', path: '/' }],
   },
-  {
-    key: 'booking',
-    label: 'Booking',
-    items: [
-      { key: 'reservations', label: 'Đặt bàn', path: '/booking/reservations' },
-      { key: 'tables', label: 'Sơ đồ bàn', path: '/booking/tables' },
-    ],
-  },
+  ...services.map((service) => ({
+    key: service.key,
+    label: service.label,
+    items: service.modules.map((m) => ({
+      key: m.key,
+      label: m.label,
+      path: m.path,
+    })),
+  })),
   {
     key: 'settings',
     label: 'Cài đặt',

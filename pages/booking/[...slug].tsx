@@ -1,26 +1,16 @@
 import React from 'react';
-import { useRouter } from 'next/router';
+import RemoteModuleRouter from '../../components/RemoteModuleRouter';
 
-interface RemoteProps {
-  tenantId: string;
-}
-
-const RemoteMap: Record<string, React.ComponentType<RemoteProps>> = {
+// Mỗi remote module cần 1 dynamic import riêng, key phải khớp `modules[].key` của
+// service 'bookingAdmin' trong services.config.js — webpack/MF cần specifier dạng
+// literal để resolve đúng container, không thể generate động từ config.
+const remoteMap = {
   reservations: React.lazy(() => import('bookingAdmin/ReservationsPage')),
   tables: React.lazy(() => import('bookingAdmin/TablesPage')),
 };
 
-export default function BookingCatchAll() {
-  const router = useRouter();
-  const slug = Array.isArray(router.query.slug) ? router.query.slug[0] : router.query.slug;
-
-  if (!slug || !RemoteMap[slug]) {
-    return <p>Không tìm thấy trang booking phù hợp: {String(slug)}</p>;
-  }
-
-  const RemoteComponent = RemoteMap[slug];
-
+export default function BookingRoute() {
   // tenantId trong thực tế lấy từ session/subdomain của resto,
   // truyền xuống remote component như 1 prop bình thường.
-  return <RemoteComponent tenantId="tenant-demo-01" />;
+  return <RemoteModuleRouter remoteMap={remoteMap} tenantId="tenant-demo-01" notFoundLabel="Không tìm thấy trang booking phù hợp" />;
 }
