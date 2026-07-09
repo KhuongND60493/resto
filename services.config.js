@@ -66,7 +66,7 @@ const services = [
     defaultRemoteUrl: {
       // TODO: điền domain thật của từng môi trường khi có. Hiện chỉ có 1 deployment
       // (Vercel test) nên cả 3 tạm trỏ chung — không phải lỗi, chỉ chưa tách môi trường.
-      dev: 'https://booking-admin-indol.vercel.app',
+      dev: 'http://localhost:3001',
       staging: 'https://booking-admin-indol.vercel.app',
       prod: 'https://booking-admin-indol.vercel.app',
     },

@@ -10,12 +10,12 @@
   "dependencies": {
     "@module-federation/runtime": "2.7.0",
     "next": "15.1.9",
-    "react": "18.2.0",
-    "react-dom": "18.2.0"
+    "react": "19.0.1",
+    "react-dom": "19.0.1"
   },
   "devDependencies": {
     "@types/node": "26.1.1",
-    "@types/react": "^18.2.0",
+    "@types/react": "^19.0.2",
     "typescript": "6.0.3"
   }
 }
